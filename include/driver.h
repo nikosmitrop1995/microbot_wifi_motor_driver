@@ -1,4 +1,4 @@
-#include <Arduino.h>
+#include "pid.h"
 #include <geometry_msgs/msg/twist.h>
 
 // Define the control inputs
@@ -8,32 +8,78 @@
 #define MOT_BIN2_REV A4
 #define SLP D5
 
+// Define encoder pins
+#define ENC_LEFT_A D9
+#define ENC_LEFT_B D10
+#define ENC_RIGHT_A D7
+#define ENC_RIGHT_B D8
+
 
 class Driver
 {
-  public:
-    Driver();
+public:
+  /**
+   * @brief Default constructor
+   */
+  Driver();
 
-    void setup();
+  /**
+   * @brief Default destructor
+   */
+  virtual ~Driver() = default;
 
-    /**
-     * @brief subscription callback executed when receiving a message
-     *
-     * @param msgin
-     */
-    static void cmd_vel_callback(const void *msgin);
+  /**
+   * @brief Subscription callback executed when receiving a message
+   *
+   * @param[in] msgin Callback message
+   */
+  static void cmd_vel_callback(const void * msgin);
 
-    /**
-     * @brief Convert the commanded velocity to PWM.
-     *
-     * @param[in] x the commanded velocity.
-     * 
-     * @return the PWM value. 
-     */
-    static int velocity_2_pwm(float x);
+  /**
+   * @brief Setup function
+   *
+   * Initializes motor drivers, wheel controllers, encoder pins, and interrupts,
+   * preparing the driver for motion control and feedback processing.
+   */
+  void setup();
 
-  protected:
+  /**
+   * @brief Periodic control update
+   *
+   * Runs the 50 Hz control loop by calculating wheel speeds from encoder counts,
+   * applying PID control to maintain target velocities, and updating tracking
+   * variables for the next cycle.
+   */
+  void update();
 
-  private:
+private:
+  static WheelController left_wheel_;
+  static WheelController right_wheel_;
 
+  // Encoder tracking
+  static volatile long left_encoder_count_;
+  static volatile long right_encoder_count_;
+  static volatile long last_left_count_;
+  static volatile long last_right_count_;
+  static unsigned long last_update_time_;
+
+  static constexpr float wheel_radius_meters = 0.0598f;
+  static constexpr float wheel_base_meters = 0.109f;
+  static constexpr int counts_per_rev = 1954;
+
+  /**
+   * @brief Interrupt Service Routine (ISR) for the left wheel encoder.
+   *
+   * Reads encoder signals to detect rotation direction and updates the
+   * left wheel's encoder count accordingly.
+   */
+  static void left_encoder_isr();
+
+  /**
+   * @brief Interrupt Service Routine (ISR) for the right wheel encoder.
+   *
+   * Reads encoder signals to detect rotation direction and updates the
+   * right wheel's encoder count accordingly.
+   */
+  static void right_encoder_isr();
 };

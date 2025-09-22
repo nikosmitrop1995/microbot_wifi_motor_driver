@@ -3,29 +3,43 @@
 
 
 // Declare uros pointer
-URos* uros = nullptr;
+URos * uros = nullptr;
+
+Driver driver;
+
+unsigned long last_update_time = 0;
+const unsigned long update_interval_ms = 20;  // 50 Hz control loop
 
 void setup()
 {
-  Driver driver;
   driver.setup();
 
   // Allocate memory for uros object
   uros = new URos;
   char ssid[] = "";
   char psk[] = "";
-  std::stringstream ip_address("192.168.0.0");
+  std::stringstream ip_address("192.168.1.123");
   uint16_t port = 8888;
   uros->connect_to_wifi(ssid, psk, ip_address, port);
 
   uros->initialize();
   // Add subscription executor (execute callback when new data received)
-  RCCHECK(rclc_executor_add_subscription(&(uros->executor_sub), &(uros->cmd_vel_subscriber), &(uros->msg), &driver.cmd_vel_callback, ON_NEW_DATA));
+  RCCHECK(
+    rclc_executor_add_subscription(
+      &(uros->executor_sub), &(uros->cmd_vel_subscriber),
+      &(uros->msg), &driver.cmd_vel_callback, ON_NEW_DATA));
 }
 
-void loop() {
+void loop()
+{
   // Check if uros is initialized
   if (uros) {
     rclc_executor_spin_some(&(uros->executor_sub), RCL_MS_TO_NS(1));
+  }
+
+  unsigned long now = millis();
+  if (now - last_update_time >= update_interval_ms) {
+    last_update_time = now;
+    driver.update();
   }
 }
