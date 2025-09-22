@@ -1,3 +1,5 @@
+#include <Arduino.h>
+#include <WiFi.h>
 #include <geometry_msgs/msg/twist.h>
 #include <micro_ros_platformio.h>
 #include <rcl/error_handling.h>
