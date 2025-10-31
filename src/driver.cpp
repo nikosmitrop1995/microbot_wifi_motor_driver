@@ -54,6 +54,15 @@ void Driver::cmd_vel_callback(const void * msgin)
   right_wheel_.set_target_velocity(uR);
 }
 
+void Driver::set_pid_gains(WheelPosition wheel_position, float kp, float ki, float kd)
+{
+  if (wheel_position == LEFT_WHEEL) {
+    left_wheel_.set_pid_gains(kp, ki, kd);
+  } else {
+    right_wheel_.set_pid_gains(kp, ki, kd);
+  }
+}
+
 void Driver::left_encoder_isr()
 {
   int left_wheel_current_state_a = digitalRead(ENC_LEFT_A);

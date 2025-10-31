@@ -62,4 +62,17 @@ public:
   // Executor
   rclc_executor_t executor_sub;
 
+  // PID parameters (separate per wheel)
+  double pid_kp_left;
+  double pid_ki_left;
+  double pid_kd_left;
+  double pid_kp_right;
+  double pid_ki_right;
+  double pid_kd_right;
+
+  // Parameter server and dedicated executor
+  rclc_parameter_server_t param_server;
+  rclc_executor_t executor_params;
+  rcl_timer_t param_timer;
+
 };

@@ -15,6 +15,11 @@
 #define ENC_RIGHT_B D8
 
 
+enum WheelPosition {
+  LEFT_WHEEL,
+  RIGHT_WHEEL
+};
+
 class Driver
 {
 public:
@@ -42,6 +47,18 @@ public:
    * preparing the driver for motion control and feedback processing.
    */
   void setup();
+
+  /**
+   * Set the PID gains for the specified wheel.
+   *
+   * @param wheel_position The wheel to configure (LEFT_WHEEL or RIGHT_WHEEL).
+   * @param kp Proportional gain.
+   * @param ki Integral gain.
+   * @param kd Derivative gain.
+   *
+   * Allows independent tuning of each wheel's PID controller.
+   */
+  void set_pid_gains(WheelPosition wheel_position, float kp, float ki, float kd);
 
   /**
    * @brief Periodic control update
