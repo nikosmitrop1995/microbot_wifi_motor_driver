@@ -26,14 +26,14 @@ void initialize_wifi_connection(const char* ssid, const char* psk)
 
   // Wait for connection with dots progress
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) {  // 20 * 500ms = 10 second timeout
-    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));  // Blink LED while connecting
+  while (WiFi.status() != WL_CONNECTED && attempts < 50) {
+    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
     delay(500);
     attempts++;
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    digitalWrite(LED_BUILTIN, HIGH);
+    digitalWrite(LED_BUILTIN, LOW);
     WiFi.disconnect(true);
     delay(100);
   }
@@ -41,16 +41,14 @@ void initialize_wifi_connection(const char* ssid, const char* psk)
 
 void setup()
 {
-  uros = new URos;
-  char ssid[] = "";
-  char psk[] = "";
+  char ssid[] = "COSMOTE-hbrffr";
+  char psk[] = "nikolakis1995";
   initialize_wifi_connection(ssid, psk);
-
-  std::stringstream ip_address("192.168.1.123");
+  uros = new URos;
+  std::stringstream ip_address("192.168.1.15");
   uint16_t port = 8888;
   uros->connect_to_wifi(ssid, psk, ip_address, port);
 
-  // Set initial PID defaults BEFORE initialize()
   uros->pid_kp_left = 10.0;
   uros->pid_ki_left = 0.0;
   uros->pid_kd_left = 0.0;
@@ -59,7 +57,6 @@ void setup()
   uros->pid_kd_right = 0.0;
 
   uros->initialize();
-  // Add subscription executor (execute callback when new data received)
   RCCHECK(
     rclc_executor_add_subscription(
       &(uros->executor_sub), &(uros->cmd_vel_subscriber),
@@ -70,16 +67,15 @@ void setup()
 
 void loop()
 {
-  // Check if uros is initialized
   if (uros) {
-    rclc_executor_spin_some(&(uros->executor_sub), RCL_MS_TO_NS(1));
-    rclc_executor_spin_some(&(uros->executor_params), RCL_MS_TO_NS(1));
+    // Spin both executors
+    rclc_executor_spin_some(&(uros->executor_sub), RCL_MS_TO_NS(10));
+    rclc_executor_spin_some(&(uros->executor_params), RCL_MS_TO_NS(10));
   }
 
   unsigned long now = millis();
   if (now - last_update_time >= update_interval_ms) {
     last_update_time = now;
-    // Sync PID gains from parameters to the driver before control update
     driver.set_pid_gains(
       LEFT_WHEEL,
       static_cast<float>(uros->pid_kp_left),

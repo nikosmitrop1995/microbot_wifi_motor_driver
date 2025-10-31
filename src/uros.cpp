@@ -1,38 +1,91 @@
 #include "uros.h"
 #include <cstring>
 
-// Parameter change callback used by rclc executor
-static bool uros_on_param_changed(const Parameter * old_param, const Parameter * new_param, void * context)
+// Fallback instance pointer
+static URos * g_uros_instance = nullptr;
+
+// Service callback for setting parameters
+// Note: rclc_service_callback_t doesn't support context, so we use global instance
+static void set_param_service_callback(const void * req, void * res)
 {
-  (void)old_param;
-  URos * self = static_cast<URos *>(context);
-  if (!self || !new_param) {return false;}
-  if (new_param->value.type != RCLC_PARAMETER_DOUBLE) {return false;}
-  const char * name = new_param->name.data;
-  const double v = new_param->value.double_value;
-  if (std::strcmp(name, "left.kp") == 0) {
-    self->pid_kp_left = v;
-  } else if (std::strcmp(name, "left.ki") == 0) {
-    self->pid_ki_left = v;
-  } else if (std::strcmp(name, "left.kd") == 0) {
-    self->pid_kd_left = v;
-  } else if (std::strcmp(name, "right.kp") == 0) {
-    self->pid_kp_right = v;
-  } else if (std::strcmp(name, "right.ki") == 0) {
-    self->pid_ki_right = v;
-  } else if (std::strcmp(name, "right.kd") == 0) {
-    self->pid_kd_right = v;
+  if (!g_uros_instance || !req || !res) return;
+
+  URos * self = g_uros_instance;
+
+  // Cast request and response
+  const rcl_interfaces__srv__SetParameters_Request * request =
+    (const rcl_interfaces__srv__SetParameters_Request *)req;
+  rcl_interfaces__srv__SetParameters_Response * response =
+    (rcl_interfaces__srv__SetParameters_Response *)res;
+
+  // Initialize response safely
+  response->results.size = 0;
+  response->results.capacity = 0;
+  response->results.data = NULL;
+
+  // Validate request
+  if (!request->parameters.data || request->parameters.size == 0) {
+    return;
   }
-  return true;
+
+  // Allocate response results array
+  size_t param_count = request->parameters.size;
+  if (param_count > 10) param_count = 10;  // Limit to prevent overflow
+
+  response->results.data = (rcl_interfaces__msg__SetParametersResult *)malloc(
+    param_count * sizeof(rcl_interfaces__msg__SetParametersResult));
+
+  if (!response->results.data) {
+    return;  // malloc failed
+  }
+
+  response->results.size = param_count;
+  response->results.capacity = param_count;
+
+  // Process each parameter
+  for (size_t i = 0; i < param_count && i < request->parameters.size; i++) {
+    const rcl_interfaces__msg__Parameter * current_param = &request->parameters.data[i];
+    if (!current_param) continue;
+
+    // Initialize result
+    response->results.data[i].successful = false;
+    response->results.data[i].reason.data = NULL;
+    response->results.data[i].reason.size = 0;
+    response->results.data[i].reason.capacity = 0;
+
+    // Check if parameter is a double and has a valid name
+    if (current_param->value.type == 3 && current_param->name.data && current_param->name.size > 0) {
+      const char * name = current_param->name.data;
+      double value = current_param->value.double_value;
+
+      if (strcmp(name, "left_kp") == 0) {
+        self->pid_kp_left = value;
+        response->results.data[i].successful = true;
+      } else if (strcmp(name, "left_ki") == 0) {
+        self->pid_ki_left = value;
+        response->results.data[i].successful = true;
+      } else if (strcmp(name, "left_kd") == 0) {
+        self->pid_kd_left = value;
+        response->results.data[i].successful = true;
+      } else if (strcmp(name, "right_kp") == 0) {
+        self->pid_kp_right = value;
+        response->results.data[i].successful = true;
+      } else if (strcmp(name, "right_ki") == 0) {
+        self->pid_ki_right = value;
+        response->results.data[i].successful = true;
+      } else if (strcmp(name, "right_kd") == 0) {
+        self->pid_kd_right = value;
+        response->results.data[i].successful = true;
+      }
+    }
+  }
 }
 
-URos::URos(){
-}
+URos::URos(){}
 
 URos::~URos(){}
 
 std::vector<int> URos::split_ip(std::stringstream &ip_address){
-
   std::string segment;
   std::vector<int> ip_vector;
   while(std::getline(ip_address, segment, '.'))
@@ -54,46 +107,44 @@ void URos::connect_to_wifi(
 }
 
 void URos::initialize(){
-
-  // Get the default memory allocator provided by rcl
+  // Get the default memory allocator
   allocator = rcl_get_default_allocator();
 
-  // Initialize rclc_support with default allocator
+  // Initialize rclc_support
   RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
 
-  // Initialize a ROS node with the name "micro_ros_platformio_node"
+  // Initialize node
   RCCHECK(rclc_node_init_default(&node, "microbot_controller_node", "", &support));
 
-  // Create Subscriber
-  RCCHECK(rclc_subscription_init_default
-  (
+  // Create cmd_vel subscriber
+  RCCHECK(rclc_subscription_init_default(
     &cmd_vel_subscriber,
     &node,
     ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
     "/cmd_vel")
   );
 
-  // Initialize an executor that will manage the execution of all the ROS entities (publishers, subscribers, services, timers)
+  // Initialize executor for subscription (1 handle)
   RCCHECK(rclc_executor_init(&executor_sub, &support.context, 1, &allocator));
 
-  // Initialize parameter server (separate executor will drive it)
-  RCSOFTCHECK(rclc_parameter_server_init_default(&param_server, &node));
+  // ========== CUSTOM SET_PARAMETERS SERVICE ==========
+  g_uros_instance = this;
 
-  // Declare PID parameters as doubles (generic add + set initial value)
-  RCSOFTCHECK(rclc_add_parameter(&param_server, "left.kp", RCLC_PARAMETER_DOUBLE));
-  RCSOFTCHECK(rclc_parameter_set_double(&param_server, "left.kp", pid_kp_left));
-  RCSOFTCHECK(rclc_add_parameter(&param_server, "left.ki", RCLC_PARAMETER_DOUBLE));
-  RCSOFTCHECK(rclc_parameter_set_double(&param_server, "left.ki", pid_ki_left));
-  RCSOFTCHECK(rclc_add_parameter(&param_server, "left.kd", RCLC_PARAMETER_DOUBLE));
-  RCSOFTCHECK(rclc_parameter_set_double(&param_server, "left.kd", pid_kd_left));
-  RCSOFTCHECK(rclc_add_parameter(&param_server, "right.kp", RCLC_PARAMETER_DOUBLE));
-  RCSOFTCHECK(rclc_parameter_set_double(&param_server, "right.kp", pid_kp_right));
-  RCSOFTCHECK(rclc_add_parameter(&param_server, "right.ki", RCLC_PARAMETER_DOUBLE));
-  RCSOFTCHECK(rclc_parameter_set_double(&param_server, "right.ki", pid_ki_right));
-  RCSOFTCHECK(rclc_add_parameter(&param_server, "right.kd", RCLC_PARAMETER_DOUBLE));
-  RCSOFTCHECK(rclc_parameter_set_double(&param_server, "right.kd", pid_kd_right));
+  // Create set_parameters service
+  RCCHECK(rclc_service_init_default(
+    &set_param_service,
+    &node,
+    ROSIDL_GET_SRV_TYPE_SUPPORT(rcl_interfaces, srv, SetParameters),
+    "/microbot_controller_node/set_parameters"));
 
-  // Dedicated executor for parameter server
+  // Initialize executor for service (1 handle)
   RCCHECK(rclc_executor_init(&executor_params, &support.context, 1, &allocator));
-  RCSOFTCHECK(rclc_executor_add_parameter_server(&executor_params, &param_server, uros_on_param_changed, this));
+
+  // Add service to executor
+  RCCHECK(rclc_executor_add_service(
+    &executor_params,
+    &set_param_service,
+    &set_param_req,
+    &set_param_res,
+    set_param_service_callback));
 }

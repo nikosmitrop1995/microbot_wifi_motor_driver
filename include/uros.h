@@ -1,10 +1,10 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <geometry_msgs/msg/twist.h>
+#include <rcl_interfaces/srv/set_parameters.h>
 #include <micro_ros_platformio.h>
 #include <rcl/error_handling.h>
 #include <rclc/executor.h>
-#include <rclc_parameter/rclc_parameter.h>
 #include <rcl/rcl.h>
 #include <rclc/rclc.h>
 #include <sstream>
@@ -70,9 +70,9 @@ public:
   double pid_ki_right;
   double pid_kd_right;
 
-  // Parameter server and dedicated executor
-  rclc_parameter_server_t param_server;
+  // Custom set_parameters service
+  rcl_service_t set_param_service;
+  rcl_interfaces__srv__SetParameters_Request set_param_req;
+  rcl_interfaces__srv__SetParameters_Response set_param_res;
   rclc_executor_t executor_params;
-  rcl_timer_t param_timer;
-
 };
