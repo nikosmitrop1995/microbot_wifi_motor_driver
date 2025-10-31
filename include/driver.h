@@ -2,10 +2,10 @@
 #include <geometry_msgs/msg/twist.h>
 
 // Define the control inputs
-#define MOT_AIN1_FWD A1
-#define MOT_AIN2_REV A2
-#define MOT_BIN1_FWD A3
-#define MOT_BIN2_REV A4
+#define MOT_AIN1_FWD A2
+#define MOT_AIN2_REV A1
+#define MOT_BIN1_FWD A4
+#define MOT_BIN2_REV A3
 #define SLP D5
 
 // Define encoder pins
