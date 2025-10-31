@@ -10,14 +10,42 @@ Driver driver;
 unsigned long last_update_time = 0;
 const unsigned long update_interval_ms = 20;  // 50 Hz control loop
 
+void initialize_wifi_connection(const char* ssid, const char* psk)
+{
+  // Initialize LED pin
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH);
+
+  // Initialize WiFi in station mode
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect(true);  // Disconnect from any previous WiFi
+  delay(100);
+
+  // Start WiFi connection
+  WiFi.begin(ssid, psk);
+
+  // Wait for connection with dots progress
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {  // 20 * 500ms = 10 second timeout
+    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));  // Blink LED while connecting
+    delay(500);
+    attempts++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    digitalWrite(LED_BUILTIN, HIGH);
+    WiFi.disconnect(true);
+    delay(100);
+  }
+}
+
 void setup()
 {
-  driver.setup();
-
-  // Allocate memory for uros object
   uros = new URos;
   char ssid[] = "";
   char psk[] = "";
+  initialize_wifi_connection(ssid, psk);
+
   std::stringstream ip_address("192.168.1.123");
   uint16_t port = 8888;
   uros->connect_to_wifi(ssid, psk, ip_address, port);
@@ -36,6 +64,8 @@ void setup()
     rclc_executor_add_subscription(
       &(uros->executor_sub), &(uros->cmd_vel_subscriber),
       &(uros->msg), &driver.cmd_vel_callback, ON_NEW_DATA));
+
+  driver.setup();
 }
 
 void loop()
