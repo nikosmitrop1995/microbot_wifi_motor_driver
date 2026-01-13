@@ -41,11 +41,11 @@ void initialize_wifi_connection(const char* ssid, const char* psk)
 
 void setup()
 {
-  char ssid[] = "COSMOTE-hbrffr";
-  char psk[] = "nikolakis1995";
+  char ssid[] = "SSID_NAME";
+  char psk[] = "PASSWORD";
   initialize_wifi_connection(ssid, psk);
   uros = new URos;
-  std::stringstream ip_address("192.168.1.15");
+  std::stringstream ip_address("IP_ADDRESS");
   uint16_t port = 8888;
   uros->connect_to_wifi(ssid, psk, ip_address, port);
 
