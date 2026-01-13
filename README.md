@@ -1,92 +1,100 @@
-# microbot_wifi_driver
-About
+# microbot_wifi_motor_driver
 
-## How to setup
+A ROS 2 package for compiling and uploading firmware to an ESP32-S3 microcontroller that acts as a WiFi-enabled motor driver. The microcontroller connects to a ROS 2 network via micro-ROS over WiFi, receiving velocity commands and controlling motors with PID control.
+
+## Installation
+
 ### Prerequisites
-Before we move on ou need first of all to setup your GCS with:
-- [ ] Docker
-- [ ] microBot container
-- [ ] VSCode
-- [ ] Platformio Extension on VSCode
 
-To do so, click [here](https://nikolaosmitropoulos.atlassian.net/wiki/pages/resumedraft.action?draftId=10354689) and follow the steps.
+- ROS 2 (Humble or later)
+- PlatformIO Core CLI
 
-### Download the repo
-Open a terminal, navigate to your preferable directory using `cd` and download the repo.
+### Installing PlatformIO
 
-In my case I'm going to create a folder named `microBot` inside `Projects` and clone the repo there, so:
-```
-mkdir -p ~/Projects/microBot
-cd ~/Projects/microBot
-git clone git clone git@github.com:nikosmitrop1995/microbot_wifi_driver.git
-```
-### Open VScode and finish setup
+Choose one of the following installation methods:
 
-What we have to to is finish setting up the GCS.
+**Option 1: PlatformIO installer script**
 
-Open a terminal and type:
-```
-code
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install curl python3-pip python3.10-venv python-is-python3 -y
+curl -fsSL -o get-platformio.py https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py
+python3 get-platformio.py
 ```
 
-This will open VSCode. 
+**Option 2: pip installation**
 
-Then press `F1` and type `PlatformIO: PlatformIO Home` 
-and press `Enter`. 
-
-At the right side of the PlatformIO Home screen, click the button that says `Open Project`.
-
-Navigate to the folder where you saved `microbot_wifi_driver` and click `Open`.
-
-After a few minutes the dependencies will be installed.
-
-### Upload the code
-Before building and uploading the code we need to edit `src/main.cpp`. Open it using the `Explorer` bar.
-
-Go to line 19 and `SSID_NAME` with the network that you want the microcontroller to be connected.
-
-On line 20 replace `PASSWORD` with the password of the network.
-
-Now, we can build and upload the code to the controller.
-
-First of all connect the microcontroller with the computer that is running PlatformIO and has the `main.cpp`.
-
-Later, press `F1`,type `PlatformIO: Build` and hit `Enter` or or you can just press `Ctrl + Alt + B`.
-
-If it finishes successfully press `F1` again, type `PlatformIO: Upload` and select the corresponding option, or you can just press `Ctrl + Alt + U`.
-
-### Run the nodes 
-When the upload finishes you should remove the USB cable from the GCS. 
-
-Start microBot docker container, by running:
-```
-cd ~/Projects/microBot/microbot_docker
-bash docker_create
-bash docker_exec
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y python3-pip python-is-python3
+pip3 install --user -U platformio
 ```
 
-From the same terminal that you were before, run:
-```
-ros2 run micro_ros_agent micro_ros_agent udp4 --port 8888
-``` 
+**Make PATH permanent**
 
-This will start the micro-ROS Agent.
+After installing PlatformIO with `--user` flag or the installer script, add PlatformIO to your PATH permanently by adding this line to your shell profile:
 
-Open another terminal and run:
-```
-cd ~/Projects/microBot/microbot_docker
-bash docker_exec
+```bash
+# For bash users
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+# For zsh users
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
 ```
 
-Once you're inside the container, run:
-```
-ros2 topic list
-``` 
+_Note: If you installed PlatformIO with the installer script or as another user, adjust the PATH accordingly (e.g., `/home/ros2/.platformio/penv/bin`)._
 
-Should you see something like:
+
+### Building the Package
+
+```bash
+cd ~/ros2_ws/src
+git clone git@github.com:nikosmitrop1995/microbot_wifi_motor_driver.git
+cd ~/ros2_ws
+colcon build --packages-select microbot_wifi_motor_driver
+source install/setup.bash
 ```
-/parameter_events
-/rosout
-/wheel_velocity
+
+## Configuration
+
+Before uploading, configure WiFi credentials and the micro-ROS agent IP address in `src/main.cpp`:
+
+```cpp
+char ssid[] = "SSID_NAME";      // Your WiFi network name
+char psk[] = "PASSWORD";        // Your WiFi password
+std::stringstream ip_address("IP_ADDRESS");  // IP address of your micro-ROS agent
 ```
-Then everything went well
+
+## Uploading Code to the Microcontroller
+
+### Prerequisites
+
+- Connect the ESP32-S3 to your computer via USB
+- Verify device detection: `pio device list`
+
+### Using ROS 2 Commands
+
+```bash
+# Compile
+ros2 run microbot_wifi_motor_driver compile
+
+# Upload
+ros2 run microbot_wifi_motor_driver upload
+```
+
+### Using PlatformIO Directly
+
+```bash
+cd $(ros2 pkg prefix microbot_wifi_motor_driver)/share/microbot_wifi_motor_driver
+pio run          # Compile
+pio run -t upload  # Upload
+```
+
+### Troubleshooting
+
+If upload fails, verify:
+- USB connection is secure
+- USB permissions: add your user to the `dialout` group: `sudo usermod -a -G dialout $USER` (log out and back in)
+- Correct board selected in `platformio.ini` (currently `seeed_xiao_esp32s3`)
